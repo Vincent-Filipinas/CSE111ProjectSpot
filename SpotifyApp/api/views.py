@@ -2,14 +2,12 @@ from django.http import HttpResponseRedirect
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .models import Token
 from .util import *
 from .Secret import *
 from requests import Request, post
 
 
 class AuthenticationURL(APIView):
-    @staticmethod
     def get(self, request, format=None):
         scopes = 'user-read-currently-playing user-read-playback-state user-modify-playback-state'
         auth_url = Request('GET', SPOTIFY_AUTH_URL, params={
