@@ -62,10 +62,44 @@ def dropTable(_conn):
     except Error as e:
         print(e) 
 
+def search_song(conn):
+    song_name = input("Enter a song name to search for: ")
+    query = "SELECT s_trackname, a_name FROM song JOIN artist ON song.s_artistkey = artist.a_artistkey WHERE s_trackname LIKE ?"
+    cursor = conn.cursor()
+    cursor.execute(query, ('%' + song_name + '%',))
+    results = cursor.fetchall()
+
+    if results:
+        print("\nSearch Results:")
+        for track_name, artist_name in results:
+            print(f"{track_name} by {artist_name}")
+    else:
+        print("No songs found matching your search.")
+
+def search_song_by_stats(conn):
+    streams = input("Enter minimum number of streams to search for: ")
+    query = "SELECT s_trackname, a_name, s_streams FROM song JOIN artist ON song.s_artistkey = artist.a_artistkey WHERE s_streams >= ?"
+    cursor = conn.cursor()
+    cursor.execute(query, (streams,))
+    results = cursor.fetchall()
+
+    if results:
+        print("\nSearch Results Based on Streams:")
+        for track_name, artist_name, stream_count in results:
+            print(f"{track_name} by {artist_name} - Streams: {stream_count}")
+    else:
+        print("No songs found with streams above the specified number.")
 
 
-def show_artists(conn, limit=10):
-    query = f"SELECT DISTINCT a_name FROM artist LIMIT {limit}"
+def artist_exists(conn, artist_name):
+    query = "SELECT COUNT(*) FROM artist WHERE a_name = ?"
+    cursor = conn.cursor()
+    cursor.execute(query, (artist_name,))
+    return cursor.fetchone()[0] > 0
+
+
+def show_artists(conn, limit=10, offset = 0):
+    query = f"SELECT DISTINCT a_name FROM artist LIMIT {limit} OFFSET {offset}"
     cursor = conn.cursor()
     cursor.execute(query)
     artists = cursor.fetchall()
@@ -110,13 +144,13 @@ def create_playlist(conn, artist=None, year=None):
     conn.commit()
 
     # Query to retrieve and display songs from new_playlist
-    display_query = "SELECT p_artistname, p_trackname FROM new_playlist"
+    display_query = "SELECT p_artistname, p_trackname, p_released_year,p_released_month,p_released_day FROM new_playlist"
     cursor.execute(display_query)
     playlist_songs = cursor.fetchall()
 
     print("\nCreated Playlist:")
-    for artist_name, track_name in playlist_songs:
-        print(f"{artist_name} - {track_name}")
+    for artist_name, track_name, year, month, day in playlist_songs:
+        print(f"{artist_name} - {track_name} {year}-{month}-{day}")
 
 
 
@@ -124,13 +158,25 @@ def create_playlist(conn, artist=None, year=None):
 def main():
     with sqlite3.connect('tpch.sqlite') as conn:
         while True:
-            create_pl = input("Do you want to create a playlist? (yes/no): ").lower()
-            if create_pl == 'yes':
+            choice = input("Do you want to create a playlist or search for a song? (playlist/search/exit): ").lower()
+            if choice == 'playlist':
                 more_artists = True
+                offset = 0
                 while more_artists:
-                    show_artists(conn)
+                    show_artists(conn, offset=offset)
                     more_artists = input("Show more artists? (yes/no): ").lower() == 'yes'
-                artist = input("Choose an artist (or press enter to skip): ")
+                    if more_artists:
+                        offset += 10
+                artist = None
+                while artist is None:
+                    artist_input = input("Choose an artist (or press enter to skip): ")
+                    if artist_input:  # User entered an artist name
+                        if artist_exists(conn, artist_input):
+                            artist = artist_input
+                        else:
+                            print("Artist not found. Please choose within given list")
+                    else:  # User pressed enter to skip
+                        break
                 show_years(conn)
                 year = input("Choose a year (or press enter to skip): ")
                 year = int(year) if year else None
@@ -141,10 +187,17 @@ def main():
                 keep_going = input("Do you want to continue? (yes/no): ")
                 if keep_going == 'no':
                     break
-            elif create_pl == 'no':
+            elif choice == 'search':
+                search_input = input('Search song by name (1) or by mood (2) (enter 1 or 2): ')
+                if search_input == '1':
+                    search_song(conn)
+                elif search_input == '2':
+                    search_song_by_stats(conn)
+
+            elif choice == 'exit':
                 break
             else:
-                print("Please enter 'yes' or 'no'.")
+                print("Please choose given options")
 
 if __name__ == "__main__":
     main()
