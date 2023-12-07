@@ -43,7 +43,8 @@ def createTable(_conn):
                 p_trackname  char(100) not null,
                 p_released_year  decimal(4,0) not null,
                 p_released_month  decimal(2,0) not null,
-                p_released_day decimal(2,0) not null
+                p_released_day decimal(2,0) not null,
+                p_labelname char(100) not null
             )
         ''')
         _conn.commit()
@@ -179,8 +180,8 @@ def insert_song(conn, song_name):
 def create_playlist(conn, artist=None, year=None, mood=None, mood_value=50):
     # Building the query to fetch and insert songs based on artist, year, and mood
     select_query = """
-    SELECT a_name, a_artistkey, s_songkey, s_trackname, s_released_year, s_released_month, s_released_day 
-    FROM artist 
+    SELECT a_name, a_artistkey, s_songkey, s_trackname, s_released_year, s_released_month, s_released_day, label_name
+    FROM artist join record_labels ON record_labels.l_artistkey = artist.a_artistkey
     JOIN song ON artist.a_artistkey = song.s_artistkey 
     LEFT JOIN stats ON song.s_songkey = stats.st_songkey
     """
@@ -202,20 +203,20 @@ def create_playlist(conn, artist=None, year=None, mood=None, mood_value=50):
     # Inserting songs into new_playlist
     for song in songs:
         insert_query = """
-        INSERT INTO new_playlist (p_artistname, p_artistkey, p_songkey, p_trackname, p_released_year, p_released_month, p_released_day)
-        VALUES (?, ?, ?, ?, ?, ?, ?);
+        INSERT INTO new_playlist (p_artistname, p_artistkey, p_songkey, p_trackname, p_released_year, p_released_month, p_released_day, p_labelname)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?);
         """
         cursor.execute(insert_query, song)
     
     conn.commit()
 
-    display_query = "SELECT p_artistname, p_trackname, p_released_year,p_released_month,p_released_day FROM new_playlist"
+    display_query = "SELECT p_artistname, p_trackname, p_released_year,p_released_month,p_released_day, p_labelname FROM new_playlist"
     cursor.execute(display_query)
     playlist_songs = cursor.fetchall()
 
     print("\nSearch Result:")
-    for artist_name, track_name, year, month, day in playlist_songs:
-        print(f"{artist_name} - {track_name} {year}-{month}-{day}")
+    for artist_name, track_name, year, month, day, labelname in playlist_songs:
+        print(f"{artist_name} - {track_name} {year}-{month}-{day} {labelname}")
 
 def load_playlist(conn):
     # Query to check if the user_playlist table exists
