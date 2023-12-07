@@ -32,7 +32,7 @@ def closeConnection(_conn, _dbFile):
 
 
 def createTable(_conn):
-    print("Create table")
+    
     try:
         cursor = _conn.cursor()
         cursor.execute('''
@@ -47,50 +47,60 @@ def createTable(_conn):
             )
         ''')
         _conn.commit()
-        print("Table created successfully.")
+        
     except Error as e:
         print(e)
 
 def createList(_conn):
-    print("Create table")
+    
     try:
         cursor = _conn.cursor()
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS user_playlist (
-                p_artistname char(100) not null,
-                p_songkey decimal(3,0) not null,
-                p_trackname  char(100) not null,
-                p_released_year  decimal(4,0) not null,
-                p_released_month  decimal(2,0) not null,
-                p_released_day decimal(2,0) not null
+                u_artistname char(100) not null,
+                u_songkey decimal(3,0) not null,
+                u_trackname  char(100) not null,
+                u_released_year  decimal(4,0) not null,
+                u_released_month  decimal(2,0) not null,
+                u_released_day decimal(2,0) not null
             )
         ''')
         _conn.commit()
-        print("Table created successfully.")
+        
     except Error as e:
         print(e)
 
+
 def dropList(_conn):
-    print("Drop tables")
+    
     try:
         cursor = _conn.cursor()
         cursor.execute('DROP TABLE IF EXISTS user_playlist')
         _conn.commit()
-        print("Table dropped successfully.")
+       
     except Error as e:
         print(e) 
 
 def dropTable(_conn):
-    print("Drop tables")
+    
     try:
         cursor = _conn.cursor()
         cursor.execute('DROP TABLE IF EXISTS new_playlist')
         _conn.commit()
-        print("Table dropped successfully.")
+        
     except Error as e:
         print(e) 
 
 
+def displayPlaylist(conn):
+    cursor = conn.cursor()
+    display_query = "SELECT u_artistname, u_trackname FROM user_playlist"
+    cursor.execute(display_query)
+    playlist_songs = cursor.fetchall()
+
+    print("\nCreated Playlist:")
+    for artist_name, track_name in playlist_songs:
+        print(f"{artist_name} - {track_name}")
 
 def search_song_by_stats(conn):
     streams = input("Enter minimum number of streams to search for: ")
@@ -113,10 +123,10 @@ def artist_exists(conn, artist_name):
     cursor.execute(query, (artist_name,))
     return cursor.fetchone()[0] > 0
 
-def song_exists(conn, artist_name):
-    query = "SELECT COUNT(*) FROM songs WHERE s_trackname LIKE ?"
+def song_exists(conn, song_name):
+    query = "SELECT COUNT(*) FROM song WHERE s_trackname LIKE ?"
     cursor = conn.cursor()
-    cursor.execute(query, (artist_name,))
+    cursor.execute(query, (song_name,))
     return cursor.fetchone()[0] > 0
 
 def show_songs(conn, limit=10, offset = 0):
@@ -145,27 +155,42 @@ def show_years(conn):
     max_year = cursor.fetchone()[0]
     print(f"Earliest Year: {min_year}, Latest Year: {max_year}")
 
-def insert_song(conn, song=None):
-    select_query = "SELECT a_name, s_songkey, s_trackname, s_released_year, s_released_month, s_released_day FROM artist JOIN song ON artist.a_artistkey = song.s_artistkey"
-    conditions = []
-    if song:
-        conditions.append(f"artist.a_name LIKE '{song}%'")
-
-    if conditions:
-        select_query += " WHERE " + " AND ".join(conditions)
-
+def insert_song(conn, song_name):
+    select_query = """
+    SELECT a_name, s_songkey, s_trackname, s_released_year, s_released_month, s_released_day 
+    FROM artist 
+    JOIN song ON artist.a_artistkey = song.s_artistkey 
+    WHERE s_trackname LIKE ?
+    """
     cursor = conn.cursor()
-    cursor.execute(select_query)
+    cursor.execute(select_query, (song_name,))
     songs = cursor.fetchall()
 
-def create_playlist(conn, artist=None, year=None):
-    # Building the query to fetch and insert songs based on artist and year
-    select_query = "SELECT a_name, a_artistkey, s_songkey, s_trackname, s_released_year, s_released_month, s_released_day FROM artist JOIN song ON artist.a_artistkey = song.s_artistkey"
+    for song in songs:
+        insert_query = """
+        INSERT INTO user_playlist (u_artistname, u_songkey, u_trackname, u_released_year, u_released_month, u_released_day)
+        VALUES (?, ?, ?, ?, ?, ?);
+        """
+        cursor.execute(insert_query, song)
+    
+    conn.commit()
+
+
+def create_playlist(conn, artist=None, year=None, mood=None, mood_value=50):
+    # Building the query to fetch and insert songs based on artist, year, and mood
+    select_query = """
+    SELECT a_name, a_artistkey, s_songkey, s_trackname, s_released_year, s_released_month, s_released_day 
+    FROM artist 
+    JOIN song ON artist.a_artistkey = song.s_artistkey 
+    LEFT JOIN stats ON song.s_songkey = stats.st_songkey
+    """
     conditions = []
     if artist:
         conditions.append(f"artist.a_name LIKE '%{artist}%'")
     if year:
         conditions.append(f"song.s_released_year = {year}")
+    if mood:
+        conditions.append(f"stats.{mood} >= {mood_value}")
 
     if conditions:
         select_query += " WHERE " + " AND ".join(conditions)
@@ -184,15 +209,38 @@ def create_playlist(conn, artist=None, year=None):
     
     conn.commit()
 
-    # Query to retrieve and display songs from new_playlist
     display_query = "SELECT p_artistname, p_trackname, p_released_year,p_released_month,p_released_day FROM new_playlist"
     cursor.execute(display_query)
     playlist_songs = cursor.fetchall()
 
-    print("\nCreated Playlist:")
+    print("\nSearch Result:")
     for artist_name, track_name, year, month, day in playlist_songs:
         print(f"{artist_name} - {track_name} {year}-{month}-{day}")
 
+def load_playlist(conn):
+    # Query to check if the user_playlist table exists
+    check_table_query = """
+    SELECT name FROM sqlite_master WHERE type='table' AND name='user_playlist';
+    """
+    cursor = conn.cursor()
+    cursor.execute(check_table_query)
+    result = cursor.fetchone()
+
+    if result:
+        # Table exists, fetch and display its content
+        fetch_query = "SELECT u_artistname, u_trackname FROM user_playlist"  # Adjust column names if necessary
+        cursor.execute(fetch_query)
+        playlist_songs = cursor.fetchall()
+
+        if playlist_songs:
+            print("\nCreated Playlist:")
+            for artist_name, track_name in playlist_songs:
+                print(f"{artist_name} - {track_name}")  # Format: Artist Name - Track Name
+        else:
+            print("User Playlist is empty.")
+    else:
+        # Table does not exist
+        print("User Playlist does not exist.")
 
 
 
@@ -221,44 +269,56 @@ def main():
                 show_years(conn)
                 year = input("Choose a year (or press enter to skip): ")
                 year = int(year) if year else None
+                mood = None
+                moods = ['danceability_per', 'valence_per', 'energy_per', 'acousticness_per', 'instrumental_per', 'liveness_per', 'speechiness_per']
+                print("Choose a mood attribute from the following:")
+                for m in moods:
+                    print(m)
+                while mood is None:
+                    mood_input = input("Enter the mood attribute (or press enter to skip): ")
+                    if mood_input:
+                        if mood_input in moods:
+                            mood = mood_input
+                        else:
+                            print("Invalid mood attribute selected. Please select from given options")
+                    else:
+                        break
+                            
                 print("list of songs will now displayed")
                 dropTable(conn)
                 createTable(conn)
-                create_playlist(conn, artist, year)
+                create_playlist(conn, artist, year, mood)
                 keep_going = input("Do you want to continue? (yes/no): ")
                 if keep_going == 'no':
-                    break
+                    quit()
             elif choice == 'playlist':
-                search_input = input('Search song by name (1) or by mood (2) (enter 1 or 2): ')
-                if search_input == '1':
-                    dropList(conn)
-                    createList(conn)
-                    addMore = True
-                    while addMore:
-                        offset = 0
-                        more_song = True
-                        while more_song:
-                            show_songs(conn, offset=offset)
-                            more_song = input("Show more artists? (yes/no): ").lower() == 'yes'
-                            if more_song:
-                                offset += 10
-                        song = None
+                dropList(conn)
+                createList(conn)
+                addMore = True
+                offset = 0
+                more_song = True
+                while more_song:
+                    show_songs(conn, offset=offset)
+                    more_song = input("Show more songs? (yes/no): ").lower() == 'yes'
+                    if more_song:
+                        offset += 10
+                while addMore:
+                    song = None
                     while song is None:
                         song_input = input("Choose an song you want in your playlist: ")
                         if song_input:  # User entered an song name
-                            if song_exists(conn, artist_input):
+                            if song_exists(conn, song_input):
                                 song = song_input
                             else:
                                 print("Song not found. Please choose within given list")
-                        else:  # User pressed enter to skip
-                            break
-                        insert_song(conn, song)
+                    insert_song(conn, song)
                     addMore = input("Would you like to add another song? (yes/no): ").lower() == 'yes'
+                displayPlaylist(conn)
                 keep_going = input("Do you want to continue? (yes/no): ")
                 if keep_going == 'no':
-                    break        
+                    quit()        
             elif choice == 'load playlist':
-                break
+                load_playlist(conn)
             elif choice == 'exit':
                 break
             else:
