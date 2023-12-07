@@ -246,7 +246,7 @@ def load_playlist(conn):
 
 
 def main():
-    with sqlite3.connect('tpch.sqlite') as conn:
+    with sqlite3.connect('spotify.sqlite') as conn:
         while True:
             choice = input("Do you want to create a playlist, search for a song, or load an existing playlist? (playlist/search/load playlist/exit): ").lower()
             if choice == 'search':
