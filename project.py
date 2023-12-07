@@ -248,7 +248,8 @@ def load_playlist(conn):
 def main():
     with sqlite3.connect('spotify.sqlite') as conn:
         while True:
-            choice = input("Do you want to create a playlist, search for a song, or load an existing playlist? (playlist/search/load playlist/exit): ").lower()
+            choice = input(
+                "________________\nDo you want to create a playlist, search for a song, or load an existing playlist? \noptions:\n-playlist\n-search\n-load playlist\n-exit\n select: ").lower()
             if choice == 'search':
                 more_artists = True
                 offset = 0
@@ -259,7 +260,7 @@ def main():
                         offset += 10
                 artist = None
                 while artist is None:
-                    artist_input = input("Choose an artist (or press enter to skip): ")
+                    artist_input = input("_______\nChoose an artist (or press enter to skip): ")
                     if artist_input:  # User entered an artist name
                         if artist_exists(conn, artist_input):
                             artist = artist_input
@@ -268,15 +269,16 @@ def main():
                     else:  # User pressed enter to skip
                         break
                 show_years(conn)
-                year = input("Choose a year (or press enter to skip): ")
+                year = input("______\nChoose a year (or press enter to skip): ")
                 year = int(year) if year else None
                 mood = None
-                moods = ['danceability_per', 'valence_per', 'energy_per', 'acousticness_per', 'instrumental_per', 'liveness_per', 'speechiness_per']
-                print("Choose a mood attribute from the following:")
+                moods = ['danceability_per', 'valence_per', 'energy_per', 'acousticness_per', 'instrumental_per',
+                         'liveness_per', 'speechiness_per']
+                print("_________\nChoose a mood attribute from the following:")
                 for m in moods:
                     print(m)
                 while mood is None:
-                    mood_input = input("Enter the mood attribute (or press enter to skip): ")
+                    mood_input = input("__________\nEnter the mood attribute (or press enter to skip): ")
                     if mood_input:
                         if mood_input in moods:
                             mood = mood_input
@@ -284,7 +286,7 @@ def main():
                             print("Invalid mood attribute selected. Please select from given options")
                     else:
                         break
-                            
+
                 print("list of songs will now displayed")
                 dropTable(conn)
                 createTable(conn)
@@ -317,7 +319,7 @@ def main():
                 displayPlaylist(conn)
                 keep_going = input("Do you want to continue? (yes/no): ")
                 if keep_going == 'no':
-                    quit()        
+                    quit()
             elif choice == 'load playlist':
                 load_playlist(conn)
             elif choice == 'exit':
